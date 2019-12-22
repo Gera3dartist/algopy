@@ -24,7 +24,7 @@ class Fraction:
 		return str(self.num) + "/" + str(self.den)
 	
 	def show(self):
-		print(self.num, "/", self.den)
+		LOGGER.info(self.num, "/", self.den)
 	
 	def __add__(self, other_fraction):
 		new_num = self.num * other_fraction.den + self.den * other_fraction.num
@@ -48,7 +48,7 @@ class Fraction:
 		return Fraction(num, den)
 
 	def __truediv__(self, other):
-		print("calling __truediv__")
+		LOGGER.info("calling __truediv__")
 		num = self.num * other.den
 		den = self.den * other.num
 		return Fraction(num, den)
@@ -92,23 +92,23 @@ class Fraction:
 def main():
 	x = Fraction(10, 20)
 	y = Fraction(20, 30)
-	print(x + y)
-	print(x == y)
-	print(x.get_den())
-	print(x.get_num())
-	print(f'substract: {Fraction(2,5) - Fraction(3, 8)}')
-	print(f'Multiply: {Fraction(2,5) * Fraction(3, 8)}')
-	print(f'Division: {Fraction(2,5) / Fraction(3, 8)}')
-	print(f'Greater: {Fraction(2,5) > Fraction(3, 8)}')
-	print(f'Smaller: {Fraction(3, 8) < Fraction(2, 5)}')
-	print(f'Smaller or equal: {Fraction(3, 8) <= Fraction(2, 8)}')
-	print(f'Not equal: {Fraction(23, 8) != Fraction(3, 8)}')
+	LOGGER.info(x + y)
+	LOGGER.info(x == y)
+	LOGGER.info(x.get_den())
+	LOGGER.info(x.get_num())
+	LOGGER.info(f'substract: {Fraction(2,5) - Fraction(3, 8)}')
+	LOGGER.info(f'Multiply: {Fraction(2,5) * Fraction(3, 8)}')
+	LOGGER.info(f'Division: {Fraction(2,5) / Fraction(3, 8)}')
+	LOGGER.info(f'Greater: {Fraction(2,5) > Fraction(3, 8)}')
+	LOGGER.info(f'Smaller: {Fraction(3, 8) < Fraction(2, 5)}')
+	LOGGER.info(f'Smaller or equal: {Fraction(3, 8) <= Fraction(2, 8)}')
+	LOGGER.info(f'Not equal: {Fraction(23, 8) != Fraction(3, 8)}')
 
-	print(f'Smaller: {Fraction(2, 5) < Fraction(2, 5)}')
+	LOGGER.info(f'Smaller: {Fraction(2, 5) < Fraction(2, 5)}')
 	first = Fraction(2, 5)
 	first += Fraction(2, 5)
-	print(f'Iadd: {first}')
-	print(f'Repr: {repr(first)}')
+	LOGGER.info(f'Iadd: {first}')
+	LOGGER.info(f'Repr: {repr(first)}')
 
 
 if __name__ == '__main__':

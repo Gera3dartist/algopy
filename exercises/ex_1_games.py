@@ -5,6 +5,19 @@ from typing import List
 from enum import Enum
 import random as rd
 import itertools as it
+from time import sleep
+import logging
+import sys
+
+
+LOGGER = logging.getLogger()
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter('%(message)s')
+handler.setFormatter(formatter)
+LOGGER.setLevel(logging.INFO)
+LOGGER.addHandler(handler)
+
+
 
 class CardSuit(Enum):
 	diamond = 1
@@ -19,9 +32,9 @@ CARD_SUIT = ('diamond', 'heart', 'spade', 'club')
 class CardMixin:
 
 	def show_cards(self, cards):
-		print(f'{self} in game with cards: ')
+		LOGGER.info(f'{self} in game with cards: ')
 		for i in cards[::-1]:
-			print(i)
+			LOGGER.info(i)
 
 
 class GameCard:
@@ -36,6 +49,9 @@ class GameCard:
 		return (self.rank > other.rank and self.suit == other.suit) or \
 			(self.is_trump and not other.is_trump)
 
+	def __ge__(self, other):
+		return (self.rank >= other.rank and self.suit == other.suit)
+
 	def __repr__(self):
 		return f'<{self.__class__.__name__}>_rank:{self.rank}_suit:{self.suit}'
 
@@ -49,7 +65,7 @@ class CardDeck(CardMixin):
 		self.trump = trump
 
 		self.show_cards(self.cards)
-		print(f'and trump is : {self.trump}')
+		LOGGER.info(f'and trump is : {self.trump}')
 
 	def is_empty(self):
 		return not self.cards
@@ -72,17 +88,33 @@ class CardDeck(CardMixin):
 
 
 class CardPlayer(CardMixin):
-	__slots__ = ('initial_cards', 'name')
+	__slots__ = ('cards', 'name')
 
-	def __init__(self, initial_cards: set, name: str):
-		self.initial_cards = initial_cards
+	def __init__(self, cards: set, name: str):
+		self.cards = cards
 		self.name = name
-		self.show_cards(self.initial_cards)
+		self.show_cards(self.cards)
 
-	def take_cards(deck: CardDeck):
-		return
+	@property
+	def active(self):
+		return len(self.cards) > 0
+	
+	def take_cards(self, deck: CardDeck):
+		needed = 6 - len(self.cards)
+		if not needed:
+			return
 
-	def make_turn()-> GameCard:
+		for card in deck.take_cards(needed):
+			if not card:
+				break
+			self.cards.append(card)
+
+	def take_cards_on_defeat(self, context: List[GameCard]):
+		LOGGER.info(f'{self} defeat in round and took cars: {context}')
+		self.cards.extend(context)
+		
+	def make_turn(self)-> GameCard:
+		context = None
 		while True:
 			card = self.select_card(context)
 			if card is None:
@@ -90,61 +122,165 @@ class CardPlayer(CardMixin):
 			yield card
 			context = yield
 
-	def select_card(self, context: dict = None):
-		filter(lambda c: c.is_trump == False, sorted(self.cards))
-		
+	def select_card(self, context: List[GameCard] = None):
+		card = None
+		try:
+			if context is None:
+				self.cards.sort(reverse=True)
+				card = self.cards[-1]
+				
+			else:
+				for _card in context:
+					for c in self.cards.sort(reverse=True):
+						 if c.rank==card.rank:
+						 	card = c
+		except IndexError:
+			pass
 
-	def handle_turn(self, card: GameCard):
-		print('Handle turn')
-		return
+		if card:
+			card = self.cards.pop(self.cards.index(card))	
+		return card
+
+	def handle_turn(self, card: GameCard) -> List[GameCard]:
+		response_card = None
+		for c in self.cards:
+			if c > card:
+				response_card = c
+				break
+
+		if response_card:
+			self.cards.remove(c)
+
+		return [card, response_card, not self.active]
 
 	def __repr__(self):
 		return f'<Player_{self.name}>'
 
-
+	def __str__(self):
+		return f'<{self.name}>'
 
 class GameManager:
 	def __init__(self, players: List[CardPlayer], carddeck: CardDeck):
 		self.players = players
 		self.carddeck = carddeck
 		self.played_cards = []
+		self.winners = []
 
 	def get_next_player(self, start=0):
 		_max, temp = len(self.players) - 1, start
 		while True:
 			yield temp
 			temp += 1
-			if temp > _max:
+			if temp > len(self.players) - 1:
 				temp = 0
 
-	def set_round_defeat(first_player, next_player, context):
-		pass
+	def set_round_defeat(self, first_player, next_player, context):
+		first_player.take_cards(self.carddeck)
+		next_player.take_cards_on_defeat(context)
+		if not first_player.active:
+			LOGGER.info(f'>>REMOVED PLAYER on DEFEAT: {first_player}')
+			self.players.remove(first_player)
 
-	def set_round_win(first_player, next_player)
+	def set_round_win(self, first_player, next_player):
+		for player in [first_player, next_player]:
+			player.take_cards(self.carddeck)
+			if not player.active:
+				LOGGER.info(f'>>REMOVED PLAYER on WIN: {player}')
+				self.players.remove(player)
 
-	def play_round(first_player, next_player):
+	def throw_cards(self, context):
+		for card in context:
+			self.played_cards.append(card)
+
+	def play_round(self, first_player, next_player)-> bool:
 		fpgen = first_player.make_turn()
-		card = next(fpgen) # warm up generator
+		card = next(fpgen, (None, None)) # warm up generator
+		played_cards = []
+		attacker_no_cards, defender_no_cards = False, False
 		while True:
-			context = next_player.handle_turn(card)
-			if context is None:
-				self.set_round_defeat(first_player, next_player, context)
-			elif cord is None:
-				self.set_round_win(first_player, next_player)
-				break
-			card = fpgen.send(context)
+			LOGGER.info(f'Attacker gave card: {card}')
+			sleep(0.5)
 
+			if card is None:
+				self.set_round_win(first_player, next_player)
+				LOGGER.info(f'Round win: {context}')
+				self.throw_cards(context)
+				break
+
+			card, response_card, defender_no_cards = next_player.handle_turn(card)
+			context = [card, response_card]
+
+			if len(next_player.cards)==0:
+				self.set_round_win(first_player, next_player)
+				LOGGER.info(f'No cards Round win: {context}')
+				self.throw_cards(context)
+				break
+
+			elif response_card is None:
+				context.pop()
+				# None means loss
+				LOGGER.info(f'Round lost: {context}')
+				LOGGER.info(f'Cards of defender: {next_player.cards}')
+				self.set_round_defeat(first_player, next_player, [card])
+				LOGGER.info(f'Cards of defender after taking: {next_player.cards}')
+				return True
+
+			LOGGER.info(f'Defender has beaten card: {context}')
+			played_cards.extend(context)
+			card = fpgen.send(context)
+		return False
+
+	def peak_first(self):
+		res = [] 
+		for i, p in enumerate(self.players):
+			try:
+				min_card = sorted(filter(lambda c: c.is_trump, p.cards), reverse=True).pop()
+			except IndexError:
+				continue
+
+			res.append((i, min_card))
+		return sorted(res, key=lambda x: x[1], reverse=True)[-1][0]
+
+	def get_player(self, first):
+		_next = first + 1
+		if _next == len(self.players):
+			return 0
+		return _next
+			
 
 	def start_game(self):
-		self.serve_cards()
-		player_gen = self.get_next_player()
+		LOGGER.info('starting the game')
 		
 		first = self.peak_first()
-		_next = next(player_gen)
-	
+		LOGGER.info(f'FIrst player is {self.players[first]}')
+		_next = self.get_player(first)
+
+		round_counter = 1
+		
 		while len(self.players) > 1:
-			self.play_round(self.players[first], self.players[_next])
-			first, _next = next(player_gen), next(player_gen)
+			attacker = self.players[first]
+			defender = self.players[_next]
+			LOGGER.info(f'Round number: {round_counter}')
+			LOGGER.info(f'Players in round: {"|".join([str(p) for p in self.players if p.active==True])}')
+			LOGGER.info(f'Attacker: {attacker}, has cards: {len(attacker.cards)}')
+			LOGGER.info(f'Defender: {defender}, has cards: {len(defender.cards)}')
+			sleep(0.1)
+			LOGGER.info(f'Played cards: {len(self.played_cards)}')
+
+			if self.play_round(attacker, defender):
+				if len(self.players) == 2:
+					continue
+				LOGGER.info('set first/last in IF branch')
+				first = self.get_player(_next)
+				_next = self.get_player(first)
+			else:
+				LOGGER.info('set first/last in ELSE branch')
+				first, _next = _next, self.get_player(_next)
+			LOGGER.info(f'NEXT: {_next}')
+			LOGGER.info(f'FIRST: {first}')
+
+			round_counter+=1
+		LOGGER.info(f'Player in game: {self.players}')
 
 			
 def select_name():
@@ -162,14 +298,12 @@ def main():
 	deck = CardDeck.create_deck()
 
 	name_gen = select_name()
-	next(name_gen)
+
 	players = [CardPlayer([c for c in deck.take_cards(6)], name=next(name_gen)) 
 		for i in range(0, rd.randint(2, 6))]
 	manager = GameManager(players, deck)
+	manager.start_game()
 	
 
-
 if __name__ == '__main__':
-	for i in filter(lambda x: x%2 == 0, range(5)):
-		print(i)
-	# main()
+	main()
